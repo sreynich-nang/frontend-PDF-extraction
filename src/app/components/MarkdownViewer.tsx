@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Eye, Edit, Save, X } from 'lucide-react';
@@ -17,6 +17,11 @@ export function MarkdownViewer({ markdown, onSave }: MarkdownViewerProps) {
   const [editContent, setEditContent] = useState(markdown.editedContent || markdown.content);
   const [viewMode, setViewMode] = useState<'preview' | 'source'>('preview');
 
+  // Update editContent when markdown prop changes
+  useEffect(() => {
+    setEditContent(markdown.editedContent || markdown.content);
+  }, [markdown.content, markdown.editedContent]);
+
   const handleSave = () => {
     onSave(editContent);
     setIsEditing(false);
@@ -25,6 +30,11 @@ export function MarkdownViewer({ markdown, onSave }: MarkdownViewerProps) {
   const handleCancel = () => {
     setEditContent(markdown.editedContent || markdown.content);
     setIsEditing(false);
+  };
+
+  const handleEdit = () => {
+    setIsEditing(true);
+    setViewMode('source'); // Switch to source view when editing
   };
 
   const displayContent = markdown.editedContent || markdown.content;
@@ -58,7 +68,7 @@ export function MarkdownViewer({ markdown, onSave }: MarkdownViewerProps) {
               </Button>
             </>
           ) : (
-            <Button size="sm" variant="outline" onClick={() => setIsEditing(true)}>
+            <Button size="sm" variant="outline" onClick={handleEdit}>
               <Edit className="h-4 w-4 mr-2" />
               Edit
             </Button>
@@ -67,25 +77,27 @@ export function MarkdownViewer({ markdown, onSave }: MarkdownViewerProps) {
       </div>
 
       {viewMode === 'preview' ? (
-        <div className="prose max-w-none p-6 bg-white border rounded-lg max-h-[600px] overflow-auto">
+        <div className="prose prose-table:border-collapse max-w-none p-6 bg-white border rounded-lg max-h-[600px] overflow-auto
+          [&_table]:w-full [&_table]:border-collapse [&_table]:border [&_table]:border-gray-300
+          [&_th]:border [&_th]:border-gray-300 [&_th]:bg-gray-100 [&_th]:px-4 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold
+          [&_td]:border [&_td]:border-gray-300 [&_td]:px-4 [&_td]:py-2
+          [&_tr:nth-child(even)]:bg-gray-50
+        ">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {isEditing ? editContent : displayContent}
+            {displayContent}
           </ReactMarkdown>
         </div>
       ) : (
         <div className="border rounded-lg overflow-hidden">
-          {isEditing ? (
-            <Textarea
-              value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
-              className="font-mono text-sm min-h-[600px] border-0 focus-visible:ring-0"
-              placeholder="Enter markdown content..."
-            />
-          ) : (
-            <pre className="p-6 bg-gray-50 text-sm overflow-auto max-h-[600px] m-0">
-              <code>{displayContent}</code>
-            </pre>
-          )}
+          <Textarea
+            value={isEditing ? editContent : displayContent}
+            onChange={(e) => setEditContent(e.target.value)}
+            readOnly={!isEditing}
+            className={`font-mono text-sm min-h-[600px] border-0 focus-visible:ring-0 ${
+              !isEditing ? 'bg-gray-50 cursor-default' : 'bg-white'
+            }`}
+            placeholder="Enter markdown content..."
+          />
         </div>
       )}
     </div>

@@ -16,63 +16,57 @@ function App() {
   const handleFileUpload = async (file: File) => {
     setIsProcessing(true);
     
-    try {
-      // Upload file to backend
-      const uploadResponse = await api.uploadFile(file);
-      
-      toast.info('File uploaded. Processing...');
+    // Create initial file entry with processing status
+    const processingFile: ProcessedFile = {
+      id: crypto.randomUUID(),
+      name: file.name,
+      type: file.type.startsWith('image/') ? 'image' : 'pdf',
+      uploadedAt: new Date(),
+      status: 'processing',
+    };
+    
+    setCurrentFile(processingFile);
+    toast.info('Processing file... This may take a moment.');
 
-      // Create initial file entry
-      const newFile: ProcessedFile = {
-        id: uploadResponse.task_id,
-        name: file.name,
-        type: file.type.startsWith('image/') ? 'image' : 'pdf',
-        uploadedAt: new Date(),
-        status: 'processing',
+    try {
+      // Use the synchronous processFile method that handles:
+      // 1. Upload + marker processing
+      // 2. Download markdown
+      // 3. Extract tables
+      // 4. Download CSV files
+      const result = await api.processFile(file);
+      
+      console.log('[App] processFile result:', result);
+      console.log('[App] CSV files from result:', result.csv_files);
+      
+      const completedFile: ProcessedFile = {
+        ...processingFile,
+        status: 'completed',
+        markdown: {
+          content: result.markdown.content,
+          filename: result.markdown.filename,
+        },
+        csvFiles: result.csv_files?.map((csv, idx) => ({
+          id: `csv-${idx}`,
+          filename: csv.filename,
+          data: csv.data,
+          headers: csv.headers,
+        })),
       };
       
-      setCurrentFile(newFile);
-
-      // Poll for status
-      const pollInterval = setInterval(async () => {
-        try {
-          const statusResponse = await api.getStatus(uploadResponse.task_id);
-          
-          if (statusResponse.status === 'completed' && statusResponse.result) {
-            clearInterval(pollInterval);
-            const completedFile: ProcessedFile = {
-              ...newFile,
-              status: 'completed',
-              markdown: {
-                content: statusResponse.result.markdown.content,
-                filename: statusResponse.result.markdown.filename,
-              },
-              csvFiles: statusResponse.result.csv_files?.map((csv, idx) => ({
-                id: `csv-${idx}`,
-                filename: csv.filename,
-                data: csv.data,
-                headers: csv.headers,
-              })),
-            };
-            
-            setCurrentFile(completedFile);
-            setIsProcessing(false);
-            toast.success('Extraction completed!');
-          } else if (statusResponse.status === 'error') {
-            clearInterval(pollInterval);
-            setIsProcessing(false);
-            toast.error('Extraction failed: ' + (statusResponse.error || 'Unknown error'));
-          }
-        } catch (error) {
-          clearInterval(pollInterval);
-          setIsProcessing(false);
-          toast.error('Failed to check status');
-        }
-      }, 2000); // Poll every 2 seconds
+      console.log('[App] completedFile csvFiles:', completedFile.csvFiles);
+      
+      setCurrentFile(completedFile);
+      toast.success('Extraction completed!');
     } catch (error) {
-      console.error('Upload error:', error);
+      console.error('Processing error:', error);
+      setCurrentFile({
+        ...processingFile,
+        status: 'error',
+      });
+      toast.error(error instanceof Error ? error.message : 'Failed to process file');
+    } finally {
       setIsProcessing(false);
-      toast.error('Failed to upload file');
     }
   };
 
@@ -90,13 +84,17 @@ function App() {
   };
 
   const handleSaveCsv = (csvId: string, data: string[][]) => {
+    console.log('[App] handleSaveCsv called with csvId:', csvId);
+    console.log('[App] handleSaveCsv data:', data);
     if (currentFile && currentFile.csvFiles) {
-      setCurrentFile({
+      const updatedFile = {
         ...currentFile,
         csvFiles: currentFile.csvFiles.map(csv =>
-          csv.id === csvId ? { ...csv, editedData: data } : csv
+          csv.id === csvId ? { ...csv, editedData: [...data.map(row => [...row])] } : csv
         ),
-      });
+      };
+      console.log('[App] Updated csvFiles:', updatedFile.csvFiles);
+      setCurrentFile(updatedFile);
       toast.success('CSV saved!');
     }
   };

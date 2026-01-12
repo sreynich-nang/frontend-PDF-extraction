@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FileText, Table, Eye, Download, Save } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -16,6 +16,21 @@ interface ResultsPanelProps {
 export function ResultsPanel({ file, onSaveMarkdown, onSaveCsv }: ResultsPanelProps) {
   const [activeView, setActiveView] = useState<'markdown' | 'csv'>('markdown');
   const [selectedCsvId, setSelectedCsvId] = useState<string>('');
+  const [csvVersion, setCsvVersion] = useState(0);
+
+  // Auto-select first CSV when available
+  useEffect(() => {
+    if (file?.csvFiles && file.csvFiles.length > 0 && !selectedCsvId) {
+      setSelectedCsvId(file.csvFiles[0].id);
+    }
+  }, [file?.csvFiles, selectedCsvId]);
+
+  const handleSaveCsv = (csvId: string, data: string[][]) => {
+    console.log('[ResultsPanel] Saving CSV:', csvId, data);
+    onSaveCsv(csvId, data);
+    // Increment version to force re-render
+    setCsvVersion(v => v + 1);
+  };
 
   if (!file || file.status !== 'completed') {
     return (
@@ -120,10 +135,11 @@ export function ResultsPanel({ file, onSaveMarkdown, onSaveCsv }: ResultsPanelPr
                     </Button>
                   ))}
                 </div>
-                {selectedCsvId && (
+                {selectedCsvId && file.csvFiles.find(c => c.id === selectedCsvId) && (
                   <CsvViewer
+                    key={`${selectedCsvId}-v${csvVersion}`}
                     csv={file.csvFiles.find(c => c.id === selectedCsvId)!}
-                    onSave={(data) => onSaveCsv(selectedCsvId, data)}
+                    onSave={(data) => handleSaveCsv(selectedCsvId, data)}
                   />
                 )}
               </div>

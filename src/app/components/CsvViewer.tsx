@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Edit, Save, X, Plus, Trash2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { CsvFile } from '../types';
 
 interface CsvViewerProps {
@@ -12,49 +11,68 @@ interface CsvViewerProps {
 
 export function CsvViewer({ csv, onSave }: CsvViewerProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [editData, setEditData] = useState<string[][]>(csv.editedData || csv.data);
-  const [editHeaders, setEditHeaders] = useState<string[]>(csv.headers);
+  const [editData, setEditData] = useState<string[][]>([]);
+  const [editHeaders, setEditHeaders] = useState<string[]>([]);
 
-  const displayData = csv.editedData || csv.data;
+  // Current display values
+  const displayData = isEditing ? editData : csv.editedData || csv.data;
+  const displayHeaders = isEditing ? editHeaders : csv.headers;
 
+  // Start editing
+  const handleStartEdit = () => {
+    setEditData(displayData.map(row => [...row]));
+    setEditHeaders([...displayHeaders]);
+    setIsEditing(true);
+  };
+
+  // Save edited data
   const handleSave = () => {
-    onSave(editData);
+    // Update headers and data
+    const newData = editData.map(row => [...row]);
+    onSave(newData); // App will store editedData
     setIsEditing(false);
   };
 
+  // Cancel editing
   const handleCancel = () => {
-    setEditData(csv.editedData || csv.data);
-    setEditHeaders(csv.headers);
     setIsEditing(false);
   };
 
+  // Update cell
   const handleCellChange = (rowIndex: number, colIndex: number, value: string) => {
-    const newData = [...editData];
-    newData[rowIndex][colIndex] = value;
-    setEditData(newData);
+    setEditData(prev => {
+      const newData = prev.map(row => [...row]);
+      newData[rowIndex][colIndex] = value;
+      return newData;
+    });
   };
 
-  const handleHeaderChange = (index: number, value: string) => {
-    const newHeaders = [...editHeaders];
-    newHeaders[index] = value;
-    setEditHeaders(newHeaders);
+  // Update header
+  const handleHeaderChange = (colIndex: number, value: string) => {
+    setEditHeaders(prev => {
+      const newHeaders = [...prev];
+      newHeaders[colIndex] = value;
+      return newHeaders;
+    });
   };
 
+  // Add a new row
   const handleAddRow = () => {
     const newRow = new Array(editHeaders.length).fill('');
-    setEditData([...editData, newRow]);
+    setEditData(prev => [...prev, newRow]);
   };
 
+  // Delete a row
   const handleDeleteRow = (rowIndex: number) => {
-    const newData = editData.filter((_, idx) => idx !== rowIndex);
-    setEditData(newData);
+    setEditData(prev => prev.filter((_, idx) => idx !== rowIndex));
   };
 
   return (
     <div className="space-y-4">
+      {/* Toolbar */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-gray-600">
-          {displayData.length} rows × {csv.headers.length} columns
+          {displayData.length} rows × {displayHeaders.length} columns
         </p>
         <div className="flex gap-2">
           {isEditing ? (
@@ -73,7 +91,7 @@ export function CsvViewer({ csv, onSave }: CsvViewerProps) {
               </Button>
             </>
           ) : (
-            <Button size="sm" variant="outline" onClick={() => setIsEditing(true)}>
+            <Button size="sm" variant="outline" onClick={handleStartEdit}>
               <Edit className="h-4 w-4 mr-2" />
               Edit
             </Button>
@@ -81,13 +99,17 @@ export function CsvViewer({ csv, onSave }: CsvViewerProps) {
         </div>
       </div>
 
-      <div className="border rounded-lg overflow-auto max-h-[600px]">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {isEditing && <TableHead className="w-12"></TableHead>}
-              {(isEditing ? editHeaders : csv.headers).map((header, idx) => (
-                <TableHead key={idx}>
+      {/* Table */}
+      <div className="border border-gray-300 rounded-lg overflow-auto max-h-[600px]">
+        <table className="w-full border-collapse">
+          <thead className="bg-gray-100 sticky top-0">
+            <tr>
+              {isEditing && <th className="border px-2 py-2 w-12"></th>}
+              {displayHeaders.map((header, idx) => (
+                <th
+                  key={idx}
+                  className="border px-4 py-2 text-left font-semibold text-sm"
+                >
                   {isEditing ? (
                     <Input
                       value={header}
@@ -97,15 +119,18 @@ export function CsvViewer({ csv, onSave }: CsvViewerProps) {
                   ) : (
                     header
                   )}
-                </TableHead>
+                </th>
               ))}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {(isEditing ? editData : displayData).map((row, rowIdx) => (
-              <TableRow key={rowIdx}>
+            </tr>
+          </thead>
+          <tbody>
+            {displayData.map((row, rowIdx) => (
+              <tr
+                key={rowIdx}
+                className={rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
+              >
                 {isEditing && (
-                  <TableCell>
+                  <td className="border px-2 py-1 text-center">
                     <Button
                       size="sm"
                       variant="ghost"
@@ -114,25 +139,30 @@ export function CsvViewer({ csv, onSave }: CsvViewerProps) {
                     >
                       <Trash2 className="h-4 w-4 text-red-500" />
                     </Button>
-                  </TableCell>
+                  </td>
                 )}
                 {row.map((cell, colIdx) => (
-                  <TableCell key={colIdx}>
+                  <td
+                    key={colIdx}
+                    className="border px-4 py-2 text-sm"
+                  >
                     {isEditing ? (
                       <Input
                         value={cell}
-                        onChange={(e) => handleCellChange(rowIdx, colIdx, e.target.value)}
+                        onChange={(e) =>
+                          handleCellChange(rowIdx, colIdx, e.target.value)
+                        }
                         className="h-8"
                       />
                     ) : (
                       cell
                     )}
-                  </TableCell>
+                  </td>
                 ))}
-              </TableRow>
+              </tr>
             ))}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
       </div>
     </div>
   );
