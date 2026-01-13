@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Edit, Save, X, Plus, Trash2 } from 'lucide-react';
+import { Edit, Save, X, Plus, Trash2, Wand2, Download } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { CsvFile } from '../types';
@@ -7,12 +7,16 @@ import { CsvFile } from '../types';
 interface CsvViewerProps {
   csv: CsvFile;
   onSave: (data: string[][]) => void;
+  onTransform?: (csvId: string, data: string[][]) => Promise<void>;
+  onDownload?: () => void;
 }
 
-export function CsvViewer({ csv, onSave }: CsvViewerProps) {
+export function CsvViewer({ csv, onSave, onTransform, onDownload }: CsvViewerProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState<string[][]>([]);
   const [editHeaders, setEditHeaders] = useState<string[]>([]);
+  const [isTransforming, setIsTransforming] = useState(false);
+  const [transformError, setTransformError] = useState<string | null>(null);
 
   // Current display values
   const displayData = isEditing ? editData : csv.editedData || csv.data;
@@ -67,6 +71,25 @@ export function CsvViewer({ csv, onSave }: CsvViewerProps) {
     setEditData(prev => prev.filter((_, idx) => idx !== rowIndex));
   };
 
+  // Transform to tidy format
+  const handleTransform = async () => {
+    if (!onTransform) return;
+    
+    setIsTransforming(true);
+    setTransformError(null);
+    
+    try {
+      // Use the latest data (edited or original)
+      const currentData = csv.editedData || csv.data;
+      await onTransform(csv.id, currentData);
+    } catch (error) {
+      setTransformError(error instanceof Error ? error.message : 'Transform failed');
+      console.error('Transform error:', error);
+    } finally {
+      setIsTransforming(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Toolbar */}
@@ -91,10 +114,31 @@ export function CsvViewer({ csv, onSave }: CsvViewerProps) {
               </Button>
             </>
           ) : (
-            <Button size="sm" variant="outline" onClick={handleStartEdit}>
-              <Edit className="h-4 w-4 mr-2" />
-              Edit
-            </Button>
+            <>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={onDownload}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download CSV
+              </Button>
+              <div className="flex flex-col gap-2">
+                <Button size="sm" variant="outline" onClick={handleStartEdit}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={handleTransform}
+                  disabled={isTransforming || !onTransform}
+                >
+                  <Wand2 className="h-4 w-4 mr-2" />
+                  {isTransforming ? 'Transforming...' : 'Transform2Tidy'}
+                </Button>
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -164,6 +208,13 @@ export function CsvViewer({ csv, onSave }: CsvViewerProps) {
           </tbody>
         </table>
       </div>
+
+      {/* Transform Error Message */}
+      {transformError && (
+        <div className="text-red-500 text-sm bg-red-50 border border-red-200 rounded p-3">
+          <strong>Transform Error:</strong> {transformError}
+        </div>
+      )}
     </div>
   );
 }

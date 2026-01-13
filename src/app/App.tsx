@@ -133,7 +133,7 @@ function App() {
         <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <Button
+              {/* <Button
                 onClick={handleTransform2Tidy}
                 disabled={!currentFile || isTransforming || !currentFile.csvFiles || currentFile.csvFiles.length === 0}
                 variant="outline"
@@ -150,7 +150,7 @@ function App() {
                     Transform2Tidy
                   </>
                 )}
-              </Button>
+              </Button> */}
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">PDF Extraction Tool</h1>
                 <p className="text-sm text-gray-600">Extract and process PDF & Image documents</p>
@@ -201,14 +201,14 @@ function App() {
             {/* Instructions */}
             <Card className="mt-6">
               <CardContent className="p-6">
-                <h3 className="text-sm font-semibold mb-3">How to Use</h3>
+                <h3 className="text-sm font-semibold mb-3">How to Use :D</h3>
                 <ol className="text-sm text-gray-600 space-y-2 list-decimal list-inside">
                   <li>Upload a PDF or image file</li>
                   <li>Wait for processing to complete</li>
                   <li>View and edit markdown content</li>
                   <li>Preview and edit CSV tables</li>
                   <li>Download processed files</li>
-                  <li>Use Transform2Tidy for data cleanup</li>
+                  <li>Use Transform2Tidy for data cleanup, there a function on CVS Tables ()</li>
                 </ol>
               </CardContent>
             </Card>

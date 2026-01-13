@@ -23,3 +23,15 @@ export interface CsvFile {
   editedData?: string[][];
 }
 
+// ...existing code...
+export interface TableTransformState {
+  isTransforming: boolean;
+  transformedData?: string; // CSV data after transform
+  error?: string;
+}
+
+// Add to existing ResultData interface
+export interface ResultData {
+  // ...existing fields...
+  tableTransforms?: Record<number, TableTransformState>; // key is table index
+}

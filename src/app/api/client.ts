@@ -185,7 +185,7 @@ export const apiClient = {
       if (tableResult.excel_files && tableResult.excel_files.length > 0) {
         console.log('[API Client] Downloading', tableResult.excel_files.length, 'CSV files...');
         csvFiles = await Promise.all(
-          tableResult.excel_files.map(async (filePath) => {
+          tableResult.excel_files.map(async (filePath: string) => {
             const filename = filePath.split(/[/\\]/).pop() || filePath;
             console.log('[API Client] Downloading CSV:', filename);
             const csvContent = await apiClient.downloadTable(documentName, filename);
@@ -216,17 +216,20 @@ export const apiClient = {
     };
   },
 
-  transform2tidy: async (data: any): Promise<any> => {
+  transform2tidy: async (csvData: string, tableIndex: number) => {
     const response = await fetch(`${API_BASE_URL}/transform2tidy`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        csv_data: csvData,
+        table_index: tableIndex
+      }),
     });
 
     if (!response.ok) {
-      throw new Error('Transform failed');
+      throw new Error(`Transform failed: ${response.statusText}`);
     }
 
     return response.json();

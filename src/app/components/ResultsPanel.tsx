@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileText, Table, Eye, Download, Save } from 'lucide-react';
+import { FileText, Table, Download } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
@@ -11,9 +11,10 @@ interface ResultsPanelProps {
   file: ProcessedFile | null;
   onSaveMarkdown: (content: string) => void;
   onSaveCsv: (csvId: string, data: string[][]) => void;
+  onTransformCsv?: (csvId: string, data: string[][]) => Promise<void>;
 }
 
-export function ResultsPanel({ file, onSaveMarkdown, onSaveCsv }: ResultsPanelProps) {
+export function ResultsPanel({ file, onSaveMarkdown, onSaveCsv, onTransformCsv }: ResultsPanelProps) {
   const [activeView, setActiveView] = useState<'markdown' | 'csv'>('markdown');
   const [selectedCsvId, setSelectedCsvId] = useState<string>('');
   const [csvVersion, setCsvVersion] = useState(0);
@@ -30,6 +31,15 @@ export function ResultsPanel({ file, onSaveMarkdown, onSaveCsv }: ResultsPanelPr
     onSaveCsv(csvId, data);
     // Increment version to force re-render
     setCsvVersion(v => v + 1);
+  };
+
+  const handleTransformCsv = async (csvId: string, data: string[][]) => {
+    if (onTransformCsv) {
+      console.log('[ResultsPanel] Transforming CSV:', csvId, data);
+      await onTransformCsv(csvId, data);
+      // Increment version to force re-render with new data
+      setCsvVersion(v => v + 1);
+    }
   };
 
   if (!file || file.status !== 'completed') {
@@ -81,20 +91,12 @@ export function ResultsPanel({ file, onSaveMarkdown, onSaveCsv }: ResultsPanelPr
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-xl">Extraction Results</CardTitle>
-          <div className="flex gap-2">
-            {activeView === 'markdown' && (
-              <Button size="sm" variant="outline" onClick={handleDownloadMarkdown}>
-                <Download className="h-4 w-4 mr-2" />
-                Download MD
-              </Button>
-            )}
-            {activeView === 'csv' && selectedCsvId && (
-              <Button size="sm" variant="outline" onClick={() => handleDownloadCsv(selectedCsvId)}>
-                <Download className="h-4 w-4 mr-2" />
-                Download CSV
-              </Button>
-            )}
-          </div>
+          {activeView === 'markdown' && (
+            <Button size="sm" variant="outline" onClick={handleDownloadMarkdown}>
+              <Download className="h-4 w-4 mr-2" />
+              Download MD
+            </Button>
+          )}
         </div>
         <p className="text-sm text-gray-500">{file.name}</p>
       </CardHeader>
@@ -140,6 +142,8 @@ export function ResultsPanel({ file, onSaveMarkdown, onSaveCsv }: ResultsPanelPr
                     key={`${selectedCsvId}-v${csvVersion}`}
                     csv={file.csvFiles.find(c => c.id === selectedCsvId)!}
                     onSave={(data) => handleSaveCsv(selectedCsvId, data)}
+                    onTransform={handleTransformCsv}
+                    onDownload={() => handleDownloadCsv(selectedCsvId)}
                   />
                 )}
               </div>
