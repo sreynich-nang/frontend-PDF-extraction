@@ -22,3 +22,4 @@ export interface CsvFile {
   headers: string[];
   editedData?: string[][];
 }
+

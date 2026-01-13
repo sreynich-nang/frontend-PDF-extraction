@@ -1,13 +1,8 @@
-// API client for the FastAPI backend
-// Set USE_MOCK_API to false to use the real backend
-const USE_MOCK_API = false; // Change this to true for testing with mock data
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || 'http://192.168.10.188:8000/api';
+const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL;
 
 // Log the API URL for debugging (check browser console)
 console.log('[API Client] Using API URL:', API_BASE_URL);
-console.log('[API Client] USE_MOCK_API:', USE_MOCK_API);
 
 // Response from /upload endpoint - matches FastAPI UploadResponse schema
 export interface UploadResponse {
@@ -238,111 +233,5 @@ export const apiClient = {
   },
 };
 
-// Mock API client for development/testing
-export const mockApiClient = {
-  uploadFile: async (file: File): Promise<UploadResponse> => {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    return {
-      status: 'success',
-      filename: file.name,
-      merged_path: file.name.replace(/\.[^.]+$/, ''),
-      processing_time_seconds: 1.5,
-    };
-  },
-
-  downloadMarkdown: async (documentName: string): Promise<string> => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return `# ${documentName}
-
-## Introduction
-This is a sample extracted document from the PDF/image processing.
-
-## Main Content
-- Point 1: Important information
-- Point 2: More details
-- Point 3: Additional notes
-
-### Data Analysis
-The following table shows the extracted data:
-
-| Column 1 | Column 2 | Column 3 |
-|----------|----------|----------|
-| Data 1   | Data 2   | Data 3   |
-
-## Conclusion
-Document extraction completed successfully.
-`;
-  },
-
-  filterTables: async (document: string, storeInFilters: boolean = false): Promise<TableExtractionResponse> => {
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return {
-      status: 'success',
-      document,
-      markdown_path: `outputs/${document}/${document}.md`,
-      tables_count: 2,
-      excel_folder: `outputs/${document}/tables_csv_${document}`,
-      excel_files: ['table_1.csv', 'table_2.csv'],
-    };
-  },
-
-  downloadTable: async (document: string, filename: string, storeInFilters: boolean = false): Promise<string> => {
-    await new Promise(resolve => setTimeout(resolve, 300));
-    if (filename === 'table_1.csv') {
-      return `Name,Age,Position,City
-John Doe,30,Engineer,New York
-Jane Smith,28,Designer,San Francisco
-Bob Johnson,35,Manager,Seattle
-Alice Williams,32,Developer,Austin`;
-    }
-    return `Quarter,Revenue,Expenses,Profit
-Q1,10000,8500,1500
-Q2,12000,9500,2500
-Q3,15000,11000,4000
-Q4,18000,13000,5000`;
-  },
-
-  parseCsvContent: (csvContent: string): { headers: string[]; data: string[][] } => {
-    return apiClient.parseCsvContent(csvContent);
-  },
-
-  processFile: async (file: File): Promise<ExtractionResult> => {
-    const uploadResult = await mockApiClient.uploadFile(file);
-    const documentName = uploadResult.merged_path;
-    const markdownContent = await mockApiClient.downloadMarkdown(documentName);
-    const tableResult = await mockApiClient.filterTables(documentName);
-    
-    const csvFiles: CsvFileData[] = await Promise.all(
-      tableResult.excel_files.map(async (filename) => {
-        const csvContent = await mockApiClient.downloadTable(documentName, filename);
-        const parsed = mockApiClient.parseCsvContent(csvContent);
-        return {
-          filename,
-          headers: parsed.headers,
-          data: parsed.data,
-        };
-      })
-    );
-
-    return {
-      markdown: {
-        content: markdownContent,
-        filename: `${documentName}.md`,
-      },
-      csv_files: csvFiles,
-      document_name: documentName,
-    };
-  },
-
-  transform2tidy: async (data: any): Promise<any> => {
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    return {
-      success: true,
-      message: 'Data transformed to tidy format',
-      transformed_data: data
-    };
-  },
-};
-
-// Export the appropriate client based on configuration
-export const api = USE_MOCK_API ? mockApiClient : apiClient;
+// Export the API client
+export const api = apiClient;
