@@ -1,12 +1,12 @@
 # PDF Extraction Tool
 
-A modern web application for extracting and processing PDF and image documents with your FastAPI backend.
+A web application for extracting and processing PDF and image documents with the FastAPI backend.
 
 ## Features
 
 - **Drag & Drop Upload**: Upload PDF or image files with an intuitive drag-and-drop interface
 - **Real-time Processing**: Monitor extraction progress with live status updates
-- **Markdown Preview & Editing**: 
+- **Markdown Preview & Editing**:
   - Switch between preview and source view
   - Edit markdown content inline
   - Save and download edited versions
@@ -16,12 +16,13 @@ A modern web application for extracting and processing PDF and image documents w
   - Add/delete rows
   - Edit headers and cell values
   - Download CSV files
-- **Transform2Tidy**: Transform CSV data to tidy format with a single click
+  - Transform CSV data to tidy format with a single click on Transfrom2Tidy
 - **Version Management**: Save edited versions of both markdown and CSV files
 
 ## Backend API Configuration
 
 The application is configured to connect to your FastAPI backend at:
+
 ```
 http://192.168.10.188:8000/api
 ```
@@ -31,11 +32,13 @@ http://192.168.10.188:8000/api
 The application expects the following endpoints:
 
 1. **POST** `/api/upload` - Upload a file
+
    - Accepts: multipart/form-data with file
    - Returns: `{ task_id: string, status: string }`
-
 2. **GET** `/api/status/{task_id}` - Check processing status
+
    - Returns:
+
    ```json
    {
      "status": "processing" | "completed" | "error",
@@ -55,8 +58,8 @@ The application expects the following endpoints:
      "error": "string (if error)"
    }
    ```
-
 3. **POST** `/api/transform2tidy` - Transform CSV to tidy format
+
    - Accepts: `{ data: string[][], headers: string[] }`
    - Returns: Transformed data
 
@@ -69,27 +72,22 @@ const API_BASE_URL = 'http://your-api-url:port/api';
 ```
 
 Or set it via environment variable:
+
 ```bash
 VITE_API_BASE_URL=http://your-api-url:port/api
 ```
 
-### Using Mock Data for Testing
-
-To test the UI without connecting to the backend, enable mock mode in `/src/app/api/client.ts`:
-
-```typescript
-const USE_MOCK_API = true; // Set to false for production
-```
-
-## File Processing Flow
+### File Processing Flow
 
 ### Image Upload
+
 1. User uploads an image file
 2. Backend processes and returns:
    - One markdown file
    - One CSV file
 
 ### PDF Upload
+
 1. User uploads a PDF file
 2. Backend processes and returns:
    - One markdown file
@@ -109,7 +107,7 @@ const USE_MOCK_API = true; // Set to false for production
 
 - **Frontend Framework**: React 18 with TypeScript
 - **Styling**: Tailwind CSS v4
-- **UI Components**: 
+- **UI Components**:
   - Radix UI primitives
   - shadcn/ui components
 - **File Handling**: react-dropzone
@@ -119,11 +117,24 @@ const USE_MOCK_API = true; // Set to false for production
 ## Development
 
 ```bash
+# Git Clone
+git clone https://github.com/sreynich-nang/project-repo.git
+
+cd project-repo
+
+# touch .env
+.env
+
+# nano .env
+VITE_API_BASE_URL=http://backend_ipaddress:port_number/api
+
 # Install dependencies
 npm install
 
-# Start development server
-npm run dev
+# Start development server (local)
+npm run dev 
+
+npx vite --host 0.0.0.0 --port 4000
 
 # Build for production
 npm run build
@@ -144,6 +155,25 @@ npm run build
   │   └── client.ts           # API client with mock support
   └── types/
       └── index.ts            # TypeScript type definitions
+```
+
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                    FRONTEND (React/Vite)                             │
+├──────────────────────────────────────────────────────────────────────┤
+│  main.tsx  ──►  App.tsx  ──►  Components                             │
+│     │                │               │                               │
+│     │                │               ├── FileUpload.tsx              │
+│     │                │               ├── ResultsPanel.tsx            │
+│     │                │               ├── MarkdownViewer.tsx          │
+│     │                │               └── CsvViewer.tsx               │
+│     │                │                                               │
+│     │                └────► api/client.ts ────► FastAPI Backend      │
+│     │                                      (192.168.10.188:8000/api) │
+│     │                                                                │
+│     └── styles/ (Tailwind CSS + custom themes)                       │
+└──────────────────────────────────────────────────────────────────────┘
+
 ```
 
 ## Notes
