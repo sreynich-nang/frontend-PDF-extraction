@@ -10,110 +10,103 @@ import { CsvViewer } from './CsvViewer';
 interface ResultsPanelProps {
   file: ProcessedFile | null;
   onSaveMarkdown: (content: string) => void;
-  onSaveCsv: (csvId: string, data: string[][]) => void;
+  onSaveCsv: (
+    csvId: string,
+    headers: string[],
+    data: string[][]
+  ) => void;
   onTransformCsv?: (csvId: string, data: string[][]) => Promise<void>;
 }
 
-export function ResultsPanel({ file, onSaveMarkdown, onSaveCsv, onTransformCsv }: ResultsPanelProps) {
-  const [activeView, setActiveView] = useState<'markdown' | 'csv'>('markdown');
-  const [selectedCsvId, setSelectedCsvId] = useState<string>('');
+export function ResultsPanel({
+  file,
+  onSaveMarkdown,
+  onSaveCsv,
+  onTransformCsv,
+}: ResultsPanelProps) {
+  const [activeView, setActiveView] =
+    useState<'markdown' | 'csv'>('markdown');
+  const [selectedCsvId, setSelectedCsvId] = useState('');
   const [csvVersion, setCsvVersion] = useState(0);
 
-  // Auto-select first CSV when available
-  useEffect(() => {
-    if (file?.csvFiles && file.csvFiles.length > 0 && !selectedCsvId) {
-      setSelectedCsvId(file.csvFiles[0].id);
-    }
-  }, [file?.csvFiles, selectedCsvId]);
+  // ✅ SAFE csvFiles access
+  const csvFiles = file?.csvFiles ?? [];
 
-  const handleSaveCsv = (csvId: string, data: string[][]) => {
-    console.log('[ResultsPanel] Saving CSV:', csvId, data);
-    onSaveCsv(csvId, data);
-    // Increment version to force re-render
+  useEffect(() => {
+    if (csvFiles.length && !selectedCsvId) {
+      setSelectedCsvId(csvFiles[0].id);
+    }
+  }, [csvFiles, selectedCsvId]);
+
+  const handleSaveCsv = (
+    csvId: string,
+    headers: string[],
+    data: string[][]
+  ) => {
+    onSaveCsv(csvId, headers, data);
     setCsvVersion(v => v + 1);
   };
 
-  const handleTransformCsv = async (csvId: string, data: string[][]) => {
-    if (onTransformCsv) {
-      console.log('[ResultsPanel] Transforming CSV:', csvId, data);
-      await onTransformCsv(csvId, data);
-      // Increment version to force re-render with new data
-      setCsvVersion(v => v + 1);
-    }
+  const handleDownloadCsv = (csvId: string) => {
+    const csv = csvFiles.find(c => c.id === csvId);
+    if (!csv) return;
+
+    const headers = csv.editedHeaders || csv.headers;
+    const data = csv.editedData || csv.data;
+
+    const content = [headers, ...data]
+      .map(r => r.join(','))
+      .join('\n');
+
+    const blob = new Blob([content], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = csv.filename;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   if (!file || file.status !== 'completed') {
     return (
       <Card className="w-full">
-        <CardContent className="p-12 text-center">
-          <div className="flex flex-col items-center gap-4 text-gray-400">
-            <FileText className="h-16 w-16" />
-            <p className="text-lg">No processed files yet</p>
-            <p className="text-sm">Upload a PDF or image to get started</p>
-          </div>
+        <CardContent className="p-12 text-center text-gray-400">
+          <FileText className="h-16 w-16 mx-auto mb-4" />
+          No processed files yet
         </CardContent>
       </Card>
     );
   }
 
-  const handleDownloadMarkdown = () => {
-    if (file.markdown) {
-      const content = file.markdown.editedContent || file.markdown.content;
-      const blob = new Blob([content], { type: 'text/markdown' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = file.markdown.filename;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-  };
-
-  const handleDownloadCsv = (csvId: string) => {
-    const csv = file.csvFiles?.find(c => c.id === csvId);
-    if (csv) {
-      const data = csv.editedData || csv.data;
-      const csvContent = [csv.headers, ...data]
-        .map(row => row.join(','))
-        .join('\n');
-      const blob = new Blob([csvContent], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = csv.filename;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-  };
-
   return (
     <Card className="w-full">
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-xl">Extraction Results</CardTitle>
-          {activeView === 'markdown' && (
-            <Button size="sm" variant="outline" onClick={handleDownloadMarkdown}>
-              <Download className="h-4 w-4 mr-2" />
-              Download MD
-            </Button>
-          )}
-        </div>
+        <CardTitle>Extraction Results</CardTitle>
         <p className="text-sm text-gray-500">{file.name}</p>
       </CardHeader>
+
       <CardContent>
-        <Tabs value={activeView} onValueChange={(v) => setActiveView(v as 'markdown' | 'csv')}>
-          <TabsList className="grid w-full grid-cols-2 mb-4">
+        <Tabs
+          value={activeView}
+          onValueChange={v =>
+            setActiveView(v as 'markdown' | 'csv')
+          }
+        >
+          <TabsList className="grid grid-cols-2 mb-4">
             <TabsTrigger value="markdown">
               <FileText className="h-4 w-4 mr-2" />
               Markdown
             </TabsTrigger>
-            <TabsTrigger value="csv" disabled={!file.csvFiles || file.csvFiles.length === 0}>
+            <TabsTrigger
+              value="csv"
+              disabled={!csvFiles.length}
+            >
               <Table className="h-4 w-4 mr-2" />
-              CSV Tables ({file.csvFiles?.length || 0})
+              CSV Tables ({csvFiles.length})
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="markdown" className="mt-0">
+          <TabsContent value="markdown">
             {file.markdown && (
               <MarkdownViewer
                 markdown={file.markdown}
@@ -122,32 +115,39 @@ export function ResultsPanel({ file, onSaveMarkdown, onSaveCsv, onTransformCsv }
             )}
           </TabsContent>
 
-          <TabsContent value="csv" className="mt-0">
-            {file.csvFiles && file.csvFiles.length > 0 && (
-              <div className="space-y-4">
-                <div className="flex flex-wrap gap-2">
-                  {file.csvFiles.map((csv) => (
-                    <Button
-                      key={csv.id}
-                      size="sm"
-                      variant={selectedCsvId === csv.id ? 'default' : 'outline'}
-                      onClick={() => setSelectedCsvId(csv.id)}
-                    >
-                      {csv.filename}
-                    </Button>
-                  ))}
-                </div>
-                {selectedCsvId && file.csvFiles.find(c => c.id === selectedCsvId) && (
-                  <CsvViewer
-                    key={`${selectedCsvId}-v${csvVersion}`}
-                    csv={file.csvFiles.find(c => c.id === selectedCsvId)!}
-                    onSave={(data) => handleSaveCsv(selectedCsvId, data)}
-                    onTransform={handleTransformCsv}
-                    onDownload={() => handleDownloadCsv(selectedCsvId)}
-                  />
-                )}
+          <TabsContent value="csv">
+            <div className="space-y-4">
+              <div className="flex gap-2 flex-wrap">
+                {csvFiles.map(csv => (
+                  <Button
+                    key={csv.id}
+                    size="sm"
+                    variant={
+                      csv.id === selectedCsvId
+                        ? 'default'
+                        : 'outline'
+                    }
+                    onClick={() => setSelectedCsvId(csv.id)}
+                  >
+                    {csv.filename}
+                  </Button>
+                ))}
               </div>
-            )}
+
+              {selectedCsvId && (
+                <CsvViewer
+                  key={`${selectedCsvId}-v${csvVersion}`}
+                  csv={csvFiles.find(c => c.id === selectedCsvId)!}
+                  onSave={(headers, data) =>
+                    handleSaveCsv(selectedCsvId, headers, data)
+                  }
+                  onTransform={onTransformCsv}
+                  onDownload={() =>
+                    handleDownloadCsv(selectedCsvId)
+                  }
+                />
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </CardContent>

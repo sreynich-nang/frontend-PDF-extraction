@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Eye, Edit, Save, X } from 'lucide-react';
+import { Eye, Edit, Save, X, Download } from 'lucide-react';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
@@ -21,6 +21,17 @@ export function MarkdownViewer({ markdown, onSave }: MarkdownViewerProps) {
   useEffect(() => {
     setEditContent(markdown.editedContent || markdown.content);
   }, [markdown.content, markdown.editedContent]);
+
+    const handleDownload = () => {
+      const content = markdown.editedContent || markdown.content;
+      const blob = new Blob([content], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${markdown.filename || 'document'}.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+  };
 
   const handleSave = () => {
     onSave(editContent);
@@ -67,14 +78,28 @@ export function MarkdownViewer({ markdown, onSave }: MarkdownViewerProps) {
                 Save
               </Button>
             </>
-          ) : (
-            <Button size="sm" variant="outline" onClick={handleEdit}>
-              <Edit className="h-4 w-4 mr-2" />
-              Edit
-            </Button>
-          )}
+      //     ) : (
+      //       <Button size="sm" variant="outline" onClick={handleEdit}>
+      //         <Edit className="h-4 w-4 mr-2" />
+      //         Edit
+      //       </Button>
+      //     )}
+      //   </div>
+      // </div>
+        ) : (
+              <>
+                <Button size="sm" variant="outline" onClick={handleDownload}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleEdit}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+              </>
+            )}
+          </div>
         </div>
-      </div>
 
       {viewMode === 'preview' ? (
         <div className="prose prose-table:border-collapse max-w-none p-6 bg-white border rounded-lg max-h-[600px] overflow-auto

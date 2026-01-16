@@ -6,85 +6,106 @@ import { CsvFile } from '../types';
 
 interface CsvViewerProps {
   csv: CsvFile;
-  onSave: (data: string[][]) => void;
+  onSave: (headers: string[], data: string[][]) => void;
   onTransform?: (csvId: string, data: string[][]) => Promise<void>;
   onDownload?: () => void;
 }
 
-export function CsvViewer({ csv, onSave, onTransform, onDownload }: CsvViewerProps) {
+export function CsvViewer({
+  csv,
+  onSave,
+  onTransform,
+  onDownload,
+}: CsvViewerProps) {
   const [isEditing, setIsEditing] = useState(false);
-  const [editData, setEditData] = useState<string[][]>([]);
   const [editHeaders, setEditHeaders] = useState<string[]>([]);
+  const [editData, setEditData] = useState<string[][]>([]);
   const [isTransforming, setIsTransforming] = useState(false);
   const [transformError, setTransformError] = useState<string | null>(null);
 
-  // Current display values
-  const displayData = isEditing ? editData : csv.editedData || csv.data;
-  const displayHeaders = isEditing ? editHeaders : csv.headers;
+  // ✅ Always prefer edited values
+  const displayHeaders = isEditing
+    ? editHeaders
+    : csv.editedHeaders || csv.headers;
 
-  // Start editing
+  const displayData = isEditing
+    ? editData
+    : csv.editedData || csv.data;
+
+  // --------------------
+  // Editing lifecycle
+  // --------------------
   const handleStartEdit = () => {
-    setEditData(displayData.map(row => [...row]));
     setEditHeaders([...displayHeaders]);
+    setEditData(displayData.map(row => [...row]));
     setIsEditing(true);
   };
 
-  // Save edited data
   const handleSave = () => {
-    // Update headers and data
-    const newData = editData.map(row => [...row]);
-    onSave(newData); // App will store editedData
+    onSave(
+      [...editHeaders],
+      editData.map(row => [...row])
+    );
     setIsEditing(false);
   };
 
-  // Cancel editing
   const handleCancel = () => {
     setIsEditing(false);
   };
 
-  // Update cell
-  const handleCellChange = (rowIndex: number, colIndex: number, value: string) => {
-    setEditData(prev => {
-      const newData = prev.map(row => [...row]);
-      newData[rowIndex][colIndex] = value;
-      return newData;
-    });
-  };
-
-  // Update header
-  const handleHeaderChange = (colIndex: number, value: string) => {
+  // --------------------
+  // Header & cell edits
+  // --------------------
+  const handleHeaderChange = (index: number, value: string) => {
     setEditHeaders(prev => {
-      const newHeaders = [...prev];
-      newHeaders[colIndex] = value;
-      return newHeaders;
+      const next = [...prev];
+      next[index] = value;
+      return next;
     });
   };
 
-  // Add a new row
+  const handleCellChange = (
+    rowIndex: number,
+    colIndex: number,
+    value: string
+  ) => {
+    setEditData(prev => {
+      const next = prev.map(row => [...row]);
+      next[rowIndex][colIndex] = value;
+      return next;
+    });
+  };
+
+  // --------------------
+  // Row operations
+  // --------------------
   const handleAddRow = () => {
-    const newRow = new Array(editHeaders.length).fill('');
-    setEditData(prev => [...prev, newRow]);
+    setEditData(prev => [
+      ...prev,
+      new Array(editHeaders.length).fill(''),
+    ]);
   };
 
-  // Delete a row
   const handleDeleteRow = (rowIndex: number) => {
-    setEditData(prev => prev.filter((_, idx) => idx !== rowIndex));
+    setEditData(prev => prev.filter((_, i) => i !== rowIndex));
   };
 
-  // Transform to tidy format
+  // --------------------
+  // Transform
+  // --------------------
   const handleTransform = async () => {
     if (!onTransform) return;
-    
+
     setIsTransforming(true);
     setTransformError(null);
-    
+
     try {
-      // Use the latest data (edited or original)
-      const currentData = csv.editedData || csv.data;
-      await onTransform(csv.id, currentData);
-    } catch (error) {
-      setTransformError(error instanceof Error ? error.message : 'Transform failed');
-      console.error('Transform error:', error);
+      const data = csv.editedData || csv.data;
+      await onTransform(csv.id, data);
+    } catch (err) {
+      setTransformError(
+        err instanceof Error ? err.message : 'Transform failed'
+      );
     } finally {
       setIsTransforming(false);
     }
@@ -93,10 +114,11 @@ export function CsvViewer({ csv, onSave, onTransform, onDownload }: CsvViewerPro
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <div className="flex items-center justify-between">
+      <div className="flex justify-between items-center">
         <p className="text-sm text-gray-600">
           {displayData.length} rows × {displayHeaders.length} columns
         </p>
+
         <div className="flex gap-2">
           {isEditing ? (
             <>
@@ -115,11 +137,7 @@ export function CsvViewer({ csv, onSave, onTransform, onDownload }: CsvViewerPro
             </>
           ) : (
             <>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                onClick={onDownload}
-              >
+              <Button size="sm" variant="outline" onClick={onDownload}>
                 <Download className="h-4 w-4 mr-2" />
                 Download CSV
               </Button>
@@ -128,14 +146,14 @@ export function CsvViewer({ csv, onSave, onTransform, onDownload }: CsvViewerPro
                   <Edit className="h-4 w-4 mr-2" />
                   Edit
                 </Button>
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   variant="outline"
                   onClick={handleTransform}
                   disabled={isTransforming || !onTransform}
                 >
                   <Wand2 className="h-4 w-4 mr-2" />
-                  {isTransforming ? 'Transforming...' : 'Transform2Tidy'}
+                  {isTransforming ? 'Transforming…' : 'Transform2Tidy'}
                 </Button>
               </div>
             </>
@@ -144,57 +162,54 @@ export function CsvViewer({ csv, onSave, onTransform, onDownload }: CsvViewerPro
       </div>
 
       {/* Table */}
-      <div className="border border-gray-300 rounded-lg overflow-auto max-h-[600px]">
+      <div className="border rounded-lg overflow-auto max-h-[600px]">
         <table className="w-full border-collapse">
           <thead className="bg-gray-100 sticky top-0">
             <tr>
-              {isEditing && <th className="border px-2 py-2 w-12"></th>}
-              {displayHeaders.map((header, idx) => (
-                <th
-                  key={idx}
-                  className="border px-4 py-2 text-left font-semibold text-sm"
-                >
+              {isEditing && <th className="border w-12" />}
+              {displayHeaders.map((h, i) => (
+                <th key={i} className="border px-4 py-2 text-left">
                   {isEditing ? (
                     <Input
-                      value={header}
-                      onChange={(e) => handleHeaderChange(idx, e.target.value)}
-                      className="h-8 font-medium"
+                      value={h}
+                      onChange={e =>
+                        handleHeaderChange(i, e.target.value)
+                      }
+                      className="h-8"
                     />
                   ) : (
-                    header
+                    h
                   )}
                 </th>
               ))}
             </tr>
           </thead>
+
           <tbody>
-            {displayData.map((row, rowIdx) => (
-              <tr
-                key={rowIdx}
-                className={rowIdx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
-              >
+            {displayData.map((row, rIdx) => (
+              <tr key={rIdx}>
                 {isEditing && (
-                  <td className="border px-2 py-1 text-center">
+                  <td className="border text-center">
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => handleDeleteRow(rowIdx)}
-                      className="h-8 w-8 p-0"
+                      onClick={() => handleDeleteRow(rIdx)}
                     >
                       <Trash2 className="h-4 w-4 text-red-500" />
                     </Button>
                   </td>
                 )}
-                {row.map((cell, colIdx) => (
-                  <td
-                    key={colIdx}
-                    className="border px-4 py-2 text-sm"
-                  >
+                {row.map((cell, cIdx) => (
+                  <td key={cIdx} className="border px-4 py-2">
                     {isEditing ? (
                       <Input
                         value={cell}
-                        onChange={(e) =>
-                          handleCellChange(rowIdx, colIdx, e.target.value)
+                        onChange={e =>
+                          handleCellChange(
+                            rIdx,
+                            cIdx,
+                            e.target.value
+                          )
                         }
                         className="h-8"
                       />
@@ -209,9 +224,8 @@ export function CsvViewer({ csv, onSave, onTransform, onDownload }: CsvViewerPro
         </table>
       </div>
 
-      {/* Transform Error Message */}
       {transformError && (
-        <div className="text-red-500 text-sm bg-red-50 border border-red-200 rounded p-3">
+        <div className="text-red-500 bg-red-50 border p-3 rounded text-sm">
           <strong>Transform Error:</strong> {transformError}
         </div>
       )}

@@ -18,8 +18,11 @@ export interface MarkdownFile {
 export interface CsvFile {
   id: string;
   filename: string;
+
   data: string[][];
   headers: string[];
+  
+  editedHeaders?: string[];
   editedData?: string[][];
 }
 

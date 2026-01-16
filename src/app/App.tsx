@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { FileUpload } from './components/FileUpload';
 import { ResultsPanel } from './components/ResultsPanel';
-import { Button } from './components/ui/button';
 import { Card, CardContent } from './components/ui/card';
-import { Wand2, Loader2 } from 'lucide-react';
-import { ProcessedFile, CsvFile, MarkdownFile } from './types';
+import { Loader2 } from 'lucide-react';
+import { ProcessedFile } from './types';
 import { api } from './api/client';
 import { toast, Toaster } from 'sonner';
 
@@ -15,30 +14,21 @@ function App() {
 
   const handleFileUpload = async (file: File) => {
     setIsProcessing(true);
-    
-    // Create initial file entry with processing status
+
     const processingFile: ProcessedFile = {
-      id: crypto.randomUUID(),
+      id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       name: file.name,
       type: file.type.startsWith('image/') ? 'image' : 'pdf',
       uploadedAt: new Date(),
       status: 'processing',
     };
-    
+
     setCurrentFile(processingFile);
     toast.info('Processing file... This may take a moment.');
 
     try {
-      // Use the synchronous processFile method that handles:
-      // 1. Upload + marker processing
-      // 2. Download markdown
-      // 3. Extract tables
-      // 4. Download CSV files
       const result = await api.processFile(file);
-      
-      console.log('[App] processFile result:', result);
-      console.log('[App] CSV files from result:', result.csv_files);
-      
+
       const completedFile: ProcessedFile = {
         ...processingFile,
         status: 'completed',
@@ -46,152 +36,132 @@ function App() {
           content: result.markdown.content,
           filename: result.markdown.filename,
         },
-        csvFiles: result.csv_files?.map((csv, idx) => ({
-          id: `csv-${idx}`,
-          filename: csv.filename,
-          data: csv.data,
-          headers: csv.headers,
-        })),
+        csvFiles: result.csv_files
+          ? result.csv_files.map((csv, idx) => ({
+              id: `csv-${idx}`,
+              filename: csv.filename,
+              data: csv.data,
+              headers: csv.headers,
+            }))
+          : [],
       };
-      
-      console.log('[App] completedFile csvFiles:', completedFile.csvFiles);
-      
+
       setCurrentFile(completedFile);
       toast.success('Extraction completed!');
     } catch (error) {
       console.error('Processing error:', error);
+
       setCurrentFile({
         ...processingFile,
         status: 'error',
       });
-      toast.error(error instanceof Error ? error.message : 'Failed to process file');
+
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to process file'
+      );
     } finally {
       setIsProcessing(false);
     }
   };
 
   const handleSaveMarkdown = (content: string) => {
-    if (currentFile && currentFile.markdown) {
-      setCurrentFile({
-        ...currentFile,
-        markdown: {
-          ...currentFile.markdown,
-          editedContent: content,
-        },
-      });
-      toast.success('Markdown saved!');
-    }
+    setCurrentFile(prev =>
+      prev && prev.markdown
+        ? {
+            ...prev,
+            markdown: {
+              ...prev.markdown,
+              editedContent: content,
+            },
+          }
+        : prev
+    );
+
+    toast.success('Markdown saved!');
   };
 
-  const handleSaveCsv = (csvId: string, data: string[][]) => {
-    console.log('[App] handleSaveCsv called with csvId:', csvId);
-    console.log('[App] handleSaveCsv data:', data);
-    if (currentFile && currentFile.csvFiles) {
-      const updatedFile = {
-        ...currentFile,
-        csvFiles: currentFile.csvFiles.map(csv =>
-          csv.id === csvId ? { ...csv, editedData: [...data.map(row => [...row])] } : csv
-        ),
-      };
-      console.log('[App] Updated csvFiles:', updatedFile.csvFiles);
-      setCurrentFile(updatedFile);
-      toast.success('CSV saved!');
-    }
-  };
+  const handleSaveCsv = (csvId: string, headers: string[], data: string[][]) => {
+    setCurrentFile(prev =>
+      prev && prev.csvFiles
+        ? {
+            ...prev,
+            csvFiles: prev.csvFiles.map(csv =>
+              csv.id === csvId
+                ? { ...csv, 
+                  editedData: data.map(row => 
+                    row.slice(0, csv.headers.length)), 
+                    
+                  editedHeaders: headers.slice(0, csv.headers.length),
+                }
+                : csv
+            ),
+          }
+        : prev
+    );
 
-  const handleTransform2Tidy = async () => {
-    if (!currentFile || !currentFile.csvFiles || currentFile.csvFiles.length === 0) {
-      toast.error('No CSV data available to transform');
-      return;
-    }
-
-    setIsTransforming(true);
-    
-    try {
-      const csvData = currentFile.csvFiles[0].editedData || currentFile.csvFiles[0].data;
-      const result = await api.transform2tidy({
-        data: csvData,
-        headers: currentFile.csvFiles[0].headers
-      });
-      
-      toast.success('Data transformed to tidy format!');
-      console.log('Transformed data:', result);
-    } catch (error) {
-      console.error('Transform error:', error);
-      toast.error('Failed to transform data');
-    } finally {
-      setIsTransforming(false);
-    }
+    toast.success('CSV saved!');
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Toaster position="top-right" />
-      
+
       {/* Header */}
       <header className="bg-white border-b shadow-sm sticky top-0 z-10">
         <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              {/* <Button
-                onClick={handleTransform2Tidy}
-                disabled={!currentFile || isTransforming || !currentFile.csvFiles || currentFile.csvFiles.length === 0}
-                variant="outline"
-                className="mr-4"
-              >
-                {isTransforming ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Transforming...
-                  </>
-                ) : (
-                  <>
-                    <Wand2 className="h-4 w-4 mr-2" />
-                    Transform2Tidy
-                  </>
-                )}
-              </Button> */}
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">PDF Extraction Tool</h1>
-                <p className="text-sm text-gray-600">Extract and process PDF & Image documents</p>
-              </div>
-            </div>
-          </div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            PDF Extraction Tool
+          </h1>
+          <p className="text-sm text-gray-600">
+            Extract and process PDF & Image documents
+          </p>
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* Main */}
       <main className="container mx-auto px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Upload Section */}
+          {/* Upload */}
           <div className="lg:col-span-1">
             <Card>
               <CardContent className="p-6">
-                <h2 className="text-lg font-semibold mb-4">Upload Document</h2>
-                <FileUpload onUpload={handleFileUpload} isProcessing={isProcessing} />
-                
+                <h2 className="text-lg font-semibold mb-4">
+                  Upload Document
+                </h2>
+
+                <FileUpload
+                  onUpload={handleFileUpload}
+                  isProcessing={isProcessing}
+                />
+
                 {isProcessing && (
                   <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                     <div className="flex items-center gap-3">
                       <Loader2 className="h-5 w-5 text-blue-600 animate-spin" />
                       <div>
-                        <p className="text-sm font-medium text-blue-900">Processing...</p>
-                        <p className="text-xs text-blue-700">Extracting content from your document</p>
+                        <p className="text-sm font-medium text-blue-900">
+                          Processing...
+                        </p>
+                        <p className="text-xs text-blue-700">
+                          Extracting content from your document
+                        </p>
                       </div>
                     </div>
                   </div>
                 )}
 
-                {currentFile && currentFile.status === 'completed' && (
+                {currentFile?.status === 'completed' && (
                   <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-green-900">✓ Extraction Complete</p>
-                      <div className="text-xs text-green-700 space-y-1">
-                        <p>• Markdown: {currentFile.markdown?.filename}</p>
-                        {currentFile.csvFiles && currentFile.csvFiles.length > 0 && (
-                          <p>• CSV Tables: {currentFile.csvFiles.length} file(s)</p>
-                        )}
-                      </div>
+                    <p className="text-sm font-medium text-green-900">
+                      ✓ Extraction Complete
+                    </p>
+                    <div className="text-xs text-green-700 mt-1 space-y-1">
+                      <p>
+                        • Markdown: {currentFile.markdown?.filename}
+                      </p>
+                      <p>
+                        • CSV Tables: {currentFile.csvFiles?.length}
+                      </p>
                     </div>
                   </div>
                 )}
@@ -201,20 +171,22 @@ function App() {
             {/* Instructions */}
             <Card className="mt-6">
               <CardContent className="p-6">
-                <h3 className="text-sm font-semibold mb-3">How to Use :D</h3>
+                <h3 className="text-sm font-semibold mb-3">
+                  How to Use :D
+                </h3>
                 <ol className="text-sm text-gray-600 space-y-2 list-decimal list-inside">
                   <li>Upload a PDF or image file</li>
                   <li>Wait for processing to complete</li>
-                  <li>View and edit markdown content</li>
-                  <li>Preview and edit CSV tables</li>
-                  <li>Download processed files</li>
-                  <li>Use Transform2Tidy for data cleanup, there a function on CVS Tables ()</li>
+                  <li>Edit markdown content</li>
+                  <li>Edit extracted CSV tables</li>
+                  <li>Download processed results</li>
+                  <li>Transform to Tidy format</li>
                 </ol>
               </CardContent>
             </Card>
           </div>
 
-          {/* Results Section */}
+          {/* Results */}
           <div className="lg:col-span-2">
             <ResultsPanel
               file={currentFile}
